@@ -437,7 +437,7 @@ def main() -> None:
 
     api = TunnelBearAPI(credentials)
 
-    for i in range(1000):
+    for i in range(200):
         if i+1 % 10 == 0:
             print("Refreshing authentication...")
             api.authenticate()
