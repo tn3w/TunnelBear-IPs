@@ -62,10 +62,10 @@ def validate_ips(old_file: str, new_file: str, metadata_file: str, output_file: 
 
     for ip in new_ips_set:
         if ip not in ttl_data:
-            ttl_data[ip] = 40
+            ttl_data[ip] = 20
             old_ips_set.add(ip)
         else:
-            ttl_data[ip] = 40
+            ttl_data[ip] = 20
 
     final_ips = list(old_ips_set)
 
