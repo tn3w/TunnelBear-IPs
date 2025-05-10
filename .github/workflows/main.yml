@@ -38,19 +38,26 @@ jobs:
 
       - name: Install ChromeDriver
         run: |
-          CHROME_VERSION=$(google-chrome --version | cut -d " " -f 3 | cut -d "." -f 1)
-          echo "Detected Chrome version: $CHROME_VERSION"
-
-          echo "Installing ChromeDriver..."
-          CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION")
-          echo "Using ChromeDriver version: $CHROMEDRIVER_VERSION"
-
-          wget -q "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver-linux64.zip"
-          unzip -o chromedriver-linux64.zip
-          sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
-          sudo chmod +x /usr/local/bin/chromedriver
-          rm -rf chromedriver-linux64.zip chromedriver-linux64
+          echo "Fetching latest ChromeDriver version..."
+          # Get the XML listing from storage API
+          CHROME_DRIVER_XML=$(curl -s "https://chromedriver.storage.googleapis.com/")
           
+          # Extract all Linux versions using grep and sort to get the latest
+          LATEST_VERSION=$(echo "$CHROME_DRIVER_XML" | grep -o '<Key>[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*/chromedriver_linux64\.zip</Key>' | 
+                          sed -E 's/<Key>([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).+<\/Key>/\1/' | 
+                          sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | 
+                          tail -1)
+          
+          echo "Latest ChromeDriver version: $LATEST_VERSION"
+          
+          # Download and install the latest version
+          wget -q "https://chromedriver.storage.googleapis.com/$LATEST_VERSION/chromedriver_linux64.zip"
+          unzip -o chromedriver_linux64.zip
+          sudo mv chromedriver /usr/local/bin/
+          sudo chmod +x /usr/local/bin/chromedriver
+          rm -rf chromedriver_linux64.zip
+          chromedriver --version
+
       - name: Run TunnelBear IP Scraper
         run: python main.py
         env:
