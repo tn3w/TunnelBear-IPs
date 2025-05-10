@@ -20,44 +20,15 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install System Dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y wget unzip xvfb libx11-xcb1 libdbus-glib-1-2 libxt6 libpci-dev
-
       - name: Install Python Dependencies
         run: |
           pip install -r requirements.txt
-
-      - name: Install Firefox
-        run: |
-          echo "Installing Firefox..."
-          sudo apt-get install -y firefox
-          firefox --version
-
-      - name: Install GeckoDriver
-        run: |
-          echo "Installing GeckoDriver..."
-          wget -q "https://github.com/mozilla/geckodriver/releases/download/v0.36.0/geckodriver-v0.36.0-linux64.tar.gz"
-          tar -xzf geckodriver-v0.36.0-linux64.tar.gz
-          sudo mv geckodriver /usr/local/bin/
-          sudo chmod +x /usr/local/bin/geckodriver
-          rm -rf geckodriver-v0.36.0-linux64.tar.gz
-          geckodriver --version
-
-      - name: Set up virtual display
-        run: |
-          echo "Setting up Xvfb..."
-          Xvfb :99 -screen 0 1280x1024x24 > /dev/null 2>&1 &
-          echo "export DISPLAY=:99" >> $GITHUB_ENV
-          sleep 3 # give xvfb time to start
 
       - name: Run TunnelBear IP Scraper
         run: python main.py
         env:
           tunnelbear_email: ${{ secrets.TUNNELBEAR_EMAIL }}
           tunnelbear_password: ${{ secrets.TUNNELBEAR_PASSWORD }}
-          DISPLAY: :99
           
       - name: Run IP Validation
         run: python validate_ips.py

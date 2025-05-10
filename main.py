@@ -4,17 +4,14 @@ import json
 import time
 import traceback
 import uuid
+import os
+import random
 import urllib.request
 import urllib.parse
 import http.cookiejar
 import gzip
 import io
-import os
-import random
 from typing import List, Tuple, Final
-from selenium import webdriver
-from selenium.webdriver.firefox.service import Service
-from selenium.webdriver.firefox.options import Options
 
 TUNNELBEAR_IPS_FILE: Final[str] = "new_tunnelbear_ips.json"
 USER_AGENT: Final[str] = (
@@ -78,93 +75,46 @@ COUNTRIES: Final[List[str]] = [
 ]
 
 
-def setup_firefox_driver(headless=True):
-    """Setup Firefox with realistic browser settings"""
-    options = Options()
-
-    if headless:
-        options.add_argument("--headless")
-
-    options.add_argument("--width=1366")
-    options.add_argument("--height=768")
-    options.set_preference("general.useragent.override", USER_AGENT)
-    options.set_preference("dom.webdriver.enabled", False)
-    options.set_preference("useAutomationExtension", False)
-
-    service = Service("/usr/local/bin/geckodriver", log_path="/dev/null")
-    driver = webdriver.Firefox(service=service, options=options)
-
-    return driver
-
-
-def get_tunnelbear_cookies():
-    """Get TunnelBear cookies and CSRF token"""
-    driver = setup_firefox_driver(headless=True)
-
-    try:
-        driver.get("https://www.tunnelbear.com/account/login")
-        time.sleep(1)
-
-        all_cookies = driver.get_cookies()
-
-        play_session = next(
-            (cookie for cookie in all_cookies if cookie["name"] == "PLAY_SESSION"), None
-        )
-        xsrf_token = next(
-            (cookie for cookie in all_cookies if cookie["name"] == "XSRF-TOKEN"), None
-        )
-
-        csrf_token = None
-
-        if play_session and "value" in play_session:
-            if "tbcsrf=" in play_session["value"]:
-                csrf_token = play_session["value"].split("tbcsrf=")[1].split("&")[0]
-
-        if not csrf_token and xsrf_token:
-            csrf_token = xsrf_token["value"]
-
-        return all_cookies, csrf_token
-
-    finally:
-        driver.quit()
-
-
-def convert_selenium_cookies_to_jar(selenium_cookies):
-    """Convert Selenium cookies to a Cookie Jar for urllib"""
-    cookie_jar = http.cookiejar.CookieJar()
-
-    for cookie_dict in selenium_cookies:
-        cookie = http.cookiejar.Cookie(
-            version=0,
-            name=cookie_dict["name"],
-            value=cookie_dict["value"],
-            port=None,
-            port_specified=False,
-            domain=cookie_dict["domain"],
-            domain_specified=bool(cookie_dict["domain"]),
-            domain_initial_dot=cookie_dict["domain"].startswith("."),
-            path=cookie_dict["path"],
-            path_specified=bool(cookie_dict["path"]),
-            secure=cookie_dict.get("secure", False),
-            expires=cookie_dict.get("expiry", None),
-            discard=False,
-            comment=None,
-            comment_url=None,
-            rest={"HttpOnly": cookie_dict.get("httpOnly", False)},
-        )
-        cookie_jar.set_cookie(cookie)
-
-    return cookie_jar
-
-
 def read_response(response):
     """Read response data, handling gzip compression if necessary"""
     if response.info().get("Content-Encoding") == "gzip":
         gzip_file = gzip.GzipFile(fileobj=io.BytesIO(response.read()))
         content = gzip_file.read()
         return content.decode("utf-8")
-
     return response.read().decode("utf-8")
+
+
+def get_tunnelbear_cookies():
+    """Get TunnelBear cookies and CSRF token using direct API endpoint"""
+    cookie_jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookie_jar))
+
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+        "tunnelbear-app-id": "com.tunnelbear.web",
+        "tunnelbear-app-version": "1.0.0",
+        "tunnelbear-platform": "Firefox",
+        "tunnelbear-platform-version": "138",
+        "Origin": "https://www.tunnelbear.com",
+        "Referer": "https://www.tunnelbear.com/",
+    }
+
+    request = urllib.request.Request(
+        "https://prod-api-core.tunnelbear.com/core/web/xzrf",
+        headers=headers,
+        method="GET",
+    )
+
+    response = opener.open(request)
+
+    csrf_token = None
+
+    if "tb-csrf-token" in response.headers:
+        csrf_token = response.headers["tb-csrf-token"]
+
+    return cookie_jar, csrf_token
 
 
 def authenticate_tunnelbear(cookies, csrf_token, email, password):
@@ -175,10 +125,9 @@ def authenticate_tunnelbear(cookies, csrf_token, email, password):
 
     try:
         device_id = f"browser-{str(uuid.uuid4())}"
-        cookie_jar = convert_selenium_cookies_to_jar(cookies)
 
         opener = urllib.request.build_opener(
-            urllib.request.HTTPCookieProcessor(cookie_jar)
+            urllib.request.HTTPCookieProcessor(cookies)
         )
 
         headers = {
@@ -202,13 +151,18 @@ def authenticate_tunnelbear(cookies, csrf_token, email, password):
             "device": device_id,
         }
 
+        url = "https://prod-api-dashboard.tunnelbear.com/dashboard/web/v2/token"
         data = json.dumps(auth_data).encode("utf-8")
 
-        url = "https://prod-api-dashboard.tunnelbear.com/dashboard/web/v2/token"
         request = urllib.request.Request(url, data=data, headers=headers, method="POST")
-        response = opener.open(request)
 
+        response = opener.open(request)
         response_data = read_response(response)
+
+        if response.getcode() != 200:
+            print(f"Authentication failed: {response_data}")
+            return None, None, None
+
         response_json = json.loads(response_data)
 
         if "access_token" not in response_json:
@@ -233,20 +187,18 @@ def authenticate_tunnelbear(cookies, csrf_token, email, password):
         opener.open(cookie_request)
 
         play_session = None
-        for cookie in cookie_jar:
+        csrf_token_updated = None
+
+        for cookie in cookies:
             if cookie.name == "PLAY_SESSION":
                 play_session = cookie.value
-
-        for cookie in cookie_jar:
             if cookie.name == "XSRF-TOKEN":
-                csrf_token = cookie.value
-                break
+                csrf_token_updated = cookie.value
 
-        return access_token, play_session, csrf_token
+        return access_token, play_session, csrf_token_updated
 
     except Exception as e:
         print(f"Error during authentication: {e}")
-
         traceback.print_exc()
         return None, None, None
 
@@ -343,14 +295,18 @@ class TunnelBearAPI:
         payload_bytes = json.dumps(payload).encode("utf-8")
 
         try:
+            headers = {"Content-Type": "application/json"}
+
             pb_auth_request = urllib.request.Request(
-                f"{PB_API_URL}/auth",
-                data=payload_bytes,
-                headers={"Content-Type": "application/json"},
-                method="POST",
+                f"{PB_API_URL}/auth", data=payload_bytes, headers=headers, method="POST"
             )
 
             pb_auth_response = self.pb_opener.open(pb_auth_request)
+
+            if pb_auth_response.getcode() != 200:
+                response_data = read_response(pb_auth_response)
+                raise Exception(f"Token exchange failed: {response_data}")
+
             auth_header = pb_auth_response.headers.get("authorization", "")
             self.pb_token = auth_header.replace("Bearer ", "") if auth_header else ""
 
@@ -360,11 +316,8 @@ class TunnelBearAPI:
             print("Token exchange successful!")
             return True
 
-        except urllib.error.URLError as e:
+        except Exception as e:
             print(f"Error exchanging token: {e}")
-            if hasattr(e, "read"):
-                error_data = e.read().decode("utf-8")
-                print(f"Error response: {error_data}")
             raise Exception(f"Failed to get PolarBear token: {e}")
 
     def get_servers(self, country=None):
@@ -379,16 +332,21 @@ class TunnelBearAPI:
         else:
             url = f"{PB_API_URL}/vpns/countries/{country}"
 
-        server_request = urllib.request.Request(url, headers=headers)
-
         try:
+            server_request = urllib.request.Request(url, headers=headers, method="GET")
+
             response = self.pb_opener.open(server_request)
-            response_data = response.read().decode("utf-8")
+
+            if response.getcode() != 200:
+                response_data = read_response(response)
+                raise Exception(f"Failed to get servers: {response_data}")
+
+            response_data = read_response(response)
             response_json = json.loads(response_data)
             return response_json
-        except urllib.error.HTTPError as e:
-            error_message = e.read().decode("utf-8") if hasattr(e, "read") else str(e)
-            raise Exception(f"Failed to get servers: {error_message}") from e
+
+        except Exception as e:
+            raise Exception(f"Failed to get servers: {str(e)}") from e
 
 
 def get_credentials_from_env() -> List[Tuple[str, str]]:
