@@ -172,3 +172,6 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# New Tunnelbear IPs
+new_tunnelbear_ips.txt
