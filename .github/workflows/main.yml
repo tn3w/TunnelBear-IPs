@@ -29,34 +29,21 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Install Google Chrome
+      - name: Install Firefox
         run: |
-          echo "Installing Google Chrome..."
-          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-          sudo apt install -y ./google-chrome-stable_current_amd64.deb
-          rm google-chrome-stable_current_amd64.deb
+          echo "Installing Firefox..."
+          sudo apt-get install -y firefox
+          firefox --version
 
-      - name: Install ChromeDriver
+      - name: Install GeckoDriver
         run: |
-          echo "Fetching latest ChromeDriver version..."
-          # Get the XML listing from storage API
-          CHROME_DRIVER_XML=$(curl -s "https://chromedriver.storage.googleapis.com/")
-          
-          # Extract all Linux versions using grep and sort to get the latest
-          LATEST_VERSION=$(echo "$CHROME_DRIVER_XML" | grep -o '<Key>[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*/chromedriver_linux64\.zip</Key>' | 
-                          sed -E 's/<Key>([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).+<\/Key>/\1/' | 
-                          sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | 
-                          tail -1)
-          
-          echo "Latest ChromeDriver version: $LATEST_VERSION"
-          
-          # Download and install the latest version
-          wget -q "https://chromedriver.storage.googleapis.com/$LATEST_VERSION/chromedriver_linux64.zip"
-          unzip -o chromedriver_linux64.zip
-          sudo mv chromedriver /usr/local/bin/
-          sudo chmod +x /usr/local/bin/chromedriver
-          rm -rf chromedriver_linux64.zip
-          chromedriver --version
+          echo "Installing GeckoDriver..."
+          wget -q "https://github.com/mozilla/geckodriver/releases/download/v0.33.0/geckodriver-v0.36.0-linux64.tar.gz"
+          tar -xzf geckodriver-v0.33.0-linux64.tar.gz
+          sudo mv geckodriver /usr/local/bin/
+          sudo chmod +x /usr/local/bin/geckodriver
+          rm -rf geckodriver-v0.33.0-linux64.tar.gz
+          geckodriver --version
 
       - name: Run TunnelBear IP Scraper
         run: python main.py

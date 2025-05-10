@@ -13,17 +13,15 @@ import os
 import random
 from typing import List, Tuple, Final
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.firefox.options import Options
 
 TUNNELBEAR_IPS_FILE: Final[str] = "new_tunnelbear_ips.json"
 USER_AGENT: Final[str] = (
     "Mozilla/5.0 "
-    "(Macintosh; Intel Mac OS X 10_15_7) "
-    "AppleWebKit/537.36 "
-    "(KHTML, like Gecko) "
-    "Chrome/113.0.0.0 "
-    "Safari/537.36"
+    "(Windows NT 10.0; Win64; x64; rv:138.0.1) "
+    "Gecko/20100101 "
+    "Firefox/138.0.1"
 )
 TB_API_URL: Final[str] = "https://api.tunnelbear.com"
 PB_API_URL: Final[str] = "https://api.polargrizzly.com"
@@ -80,41 +78,28 @@ COUNTRIES: Final[List[str]] = [
 ]
 
 
-def setup_chrome_driver(headless=True):
-    """Setup Chrome with realistic browser settings"""
+def setup_firefox_driver(headless=True):
+    """Setup Firefox with realistic browser settings"""
     options = Options()
 
     if headless:
-        options.add_argument("--headless=new")
+        options.add_argument("--headless")
 
-    options.add_argument("--window-size=1366,768")
-    options.add_argument(f"--user-agent={USER_AGENT}")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
+    options.add_argument("--width=1366")
+    options.add_argument("--height=768")
+    options.set_preference("general.useragent.override", USER_AGENT)
+    options.set_preference("dom.webdriver.enabled", False)
+    options.set_preference("useAutomationExtension", False)
 
-    options.add_argument("--disable-extensions")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--log-level=3")
-
-    service = Service("/usr/local/bin/chromedriver", log_path="/dev/null")
-    driver = webdriver.Chrome(service=service, options=options)
-
-    driver.execute_cdp_cmd(
-        "Page.addScriptToEvaluateOnNewDocument",
-        {
-            "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
-        },
-    )
+    service = Service("/usr/local/bin/geckodriver", log_path="/dev/null")
+    driver = webdriver.Firefox(service=service, options=options)
 
     return driver
 
 
 def get_tunnelbear_cookies():
     """Get TunnelBear cookies and CSRF token"""
-    driver = setup_chrome_driver(headless=True)
+    driver = setup_firefox_driver(headless=True)
 
     try:
         driver.get("https://www.tunnelbear.com/account/login")
