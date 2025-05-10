@@ -38,11 +38,11 @@ jobs:
       - name: Install GeckoDriver
         run: |
           echo "Installing GeckoDriver..."
-          wget -q "https://github.com/mozilla/geckodriver/releases/download/v0.33.0/geckodriver-v0.36.0-linux64.tar.gz"
-          tar -xzf geckodriver-v0.33.0-linux64.tar.gz
+          wget -q "https://github.com/mozilla/geckodriver/releases/download/v0.36.0/geckodriver-v0.36.0-linux64.tar.gz"
+          tar -xzf geckodriver-v0.36.0-linux64.tar.gz
           sudo mv geckodriver /usr/local/bin/
           sudo chmod +x /usr/local/bin/geckodriver
-          rm -rf geckodriver-v0.33.0-linux64.tar.gz
+          rm -rf geckodriver-v0.36.0-linux64.tar.gz
           geckodriver --version
 
       - name: Run TunnelBear IP Scraper
