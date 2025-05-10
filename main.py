@@ -437,7 +437,7 @@ def main() -> None:
 
     api = TunnelBearAPI(credentials)
 
-    for i in range(200):
+    for i in range(1000):
         if i+1 % 10 == 0:
             print("Refreshing authentication...")
             api.authenticate()
@@ -445,7 +445,7 @@ def main() -> None:
         api.exchange_token()
 
         for country in COUNTRIES:
-            time.sleep(random.uniform(0.2, 0.4))
+            time.sleep(random.uniform(0.3, 0.5))
             print(f"Checking country: {country}")
             try:
                 response = api.get_servers(country)
