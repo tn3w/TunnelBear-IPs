@@ -437,12 +437,25 @@ def main() -> None:
 
     api = TunnelBearAPI(credentials)
 
-    for i in range(200):
-        if i+1 % 10 == 0:
-            print("Refreshing authentication...")
-            api.authenticate()
+    error_count = 0
 
-        api.exchange_token()
+    for i in range(500):
+        try:
+            if i+1 % 10 == 0:
+                print("Refreshing authentication...")
+                api.authenticate()
+
+            api.exchange_token()
+        except Exception as e:
+            print(f"Error with iteration {i}: {e}")
+
+            if error_count > 10:
+                print("Too many errors, exiting...")
+                break
+
+            error_count += 1
+            time.sleep(10)
+            continue
 
         for country in COUNTRIES:
             time.sleep(random.uniform(0.3, 0.5))
