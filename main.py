@@ -439,7 +439,7 @@ def main() -> None:
 
     error_count = 0
 
-    for i in range(600):
+    for i in range(650):
         try:
             if i+1 % 10 == 0:
                 print("Refreshing authentication...")
