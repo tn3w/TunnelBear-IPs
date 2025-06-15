@@ -36,7 +36,7 @@ def save_as_txt_file(file_path: str, data):
 def validate_ips(old_file: str, new_file: str, metadata_file: str, output_file: str):
     """
     Validate IPs based on TTL mechanism:
-    - New IPs get TTL of 20
+    - New IPs get TTL of 30
     - IPs not in new list have TTL reduced by 1
     - IPs with TTL of 0 are removed
     - Old IPs not in TTL data are added with TTL reduced by 1
@@ -50,7 +50,7 @@ def validate_ips(old_file: str, new_file: str, metadata_file: str, output_file: 
 
     for ip in old_ips_set:
         if ip not in ttl_data:
-            ttl_data[ip] = 20
+            ttl_data[ip] = 30
 
     for ip in list(ttl_data.keys()):
         if ip not in new_ips_set:
@@ -62,10 +62,10 @@ def validate_ips(old_file: str, new_file: str, metadata_file: str, output_file: 
 
     for ip in new_ips_set:
         if ip not in ttl_data:
-            ttl_data[ip] = 20
+            ttl_data[ip] = 30
             old_ips_set.add(ip)
         else:
-            ttl_data[ip] = 20
+            ttl_data[ip] = 30
 
     final_ips = list(old_ips_set)
 
