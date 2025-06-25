@@ -26,9 +26,6 @@ jobs:
           tunnelbear_email: ${{ secrets.TUNNELBEAR_EMAIL }}
           tunnelbear_password: ${{ secrets.TUNNELBEAR_PASSWORD }}
 
-      - name: Run IP Validation
-        run: python validate_ips.py
-
       - name: Commit and Push Changes
         run: |
           git config --local user.email "action@github.com"

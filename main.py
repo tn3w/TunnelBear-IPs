@@ -7,13 +7,25 @@ import uuid
 import os
 import random
 import urllib.request
-import urllib.parse
 import http.cookiejar
 import gzip
 import io
-from typing import List, Tuple, Final
+from typing import List, Tuple, Dict, Any, Final
 
-TUNNELBEAR_IPS_FILE: Final[str] = "new_tunnelbear_ips.json"
+TXT_HEADER = """#
+# tunnelbear_ips.txt
+# https://github.com/tn3w/TunnelBear-IPs/blob/master/tunnelbear_ips.txt
+#
+# An automatically updated list of IP addresses associated with the
+# popular mobile VPN provider, TunnelBear.
+#
+# This list could be used to block malicious traffic from TunnelBear's servers.
+#
+"""
+
+# Constants
+TUNNELBEAR_IPS_FILE: Final[str] = "tunnelbear_ips.json"
+TUNNELBEAR_IPS_TTL_FILE: Final[str] = "tunnelbear_ips_ttl.json"
 USER_AGENT: Final[str] = (
     "Mozilla/5.0 "
     "(Windows NT 10.0; Win64; x64; rv:138.0.1) "
@@ -73,6 +85,48 @@ COUNTRIES: Final[List[str]] = [
     "gb",
     "us",
 ]
+
+
+class WebException(Exception):
+    """Exception raised for HTTP errors with status code information."""
+
+    def __init__(self, message, status_code, reason):
+        self.message = message
+        self.status_code = status_code
+        self.reason = reason
+        super().__init__(f"{message} Status: {status_code}, reason: {reason}")
+
+
+def load_dotenv(env_file=".env"):
+    """
+    Load environment variables from a .env file into os.environ
+
+    Args:
+        env_file: Path to the .env file (default: ".env")
+    """
+    if not os.path.exists(env_file):
+        return
+
+    with open(env_file, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+
+            if not line or line.startswith("#"):
+                continue
+
+            if "=" in line:
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip()
+
+                if (value.startswith('"') and value.endswith('"')) or (
+                    value.startswith("'") and value.endswith("'")
+                ):
+                    value = value[1:-1]
+
+                os.environ[key] = value
+
+    print(f"Loaded environment variables from {env_file}")
 
 
 def read_response(response):
@@ -380,49 +434,76 @@ def get_credentials_from_env() -> List[Tuple[str, str]]:
     return credentials
 
 
-def load_dotenv(env_file=".env"):
+def load_json_file(file_path: str, default=None) -> Any:
+    """Load a JSON file or return default if file doesn't exist."""
+    if default is None:
+        default = []
+
+    if not os.path.exists(file_path):
+        return default
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        print(f"Warning: {file_path} is not valid JSON. Using default value.")
+        return default
+
+
+def save_json_file(file_path: str, data):
+    """Save data to a JSON file."""
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+
+def save_as_txt_file(file_path: str, data):
+    """Save data to a TXT file."""
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(TXT_HEADER)
+        f.write("\n".join(data))
+
+
+def validate_ips(
+    current_ips: List[str], new_ips: List[str], ttl_data: Dict[str, int]
+) -> List[str]:
     """
-    Load environment variables from a .env file into os.environ
-
-    Args:
-        env_file: Path to the .env file (default: ".env")
+    Validate IPs based on TTL mechanism:
+    - New IPs get TTL of 30
+    - IPs not in new list have TTL reduced by 1
+    - IPs with TTL of 0 are removed
+    - Old IPs not in TTL data are added with TTL of 30
     """
-    if not os.path.exists(env_file):
-        return
+    current_ips_set = set(current_ips)
+    new_ips_set = set(new_ips)
 
-    with open(env_file, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
+    for ip in current_ips_set:
+        if ip not in ttl_data:
+            ttl_data[ip] = 30
 
-            if not line or line.startswith("#"):
-                continue
+    for ip in list(ttl_data.keys()):
+        if ip not in new_ips_set:
+            ttl_data[ip] -= 1
+            if ttl_data[ip] <= 0:
+                del ttl_data[ip]
+                if ip in current_ips_set:
+                    current_ips_set.remove(ip)
 
-            if "=" in line:
-                key, value = line.split("=", 1)
-                key = key.strip()
-                value = value.strip()
+    for ip in new_ips_set:
+        ttl_data[ip] = 30
+        current_ips_set.add(ip)
 
-                if (value.startswith('"') and value.endswith('"')) or (
-                    value.startswith("'") and value.endswith("'")
-                ):
-                    value = value[1:-1]
+    final_ips = list(current_ips_set)
 
-                os.environ[key] = value
+    print(f"Processed IPs: {len(final_ips)} IPs in final list")
+    print(f"Added: {len(new_ips_set - set(current_ips))} new IPs")
+    print(f"Removed: {len(set(current_ips) - current_ips_set)} expired IPs")
 
-    print(f"Loaded environment variables from {env_file}")
+    return final_ips
 
 
-def main() -> None:
-    """Main function to run the script"""
+def fetch_tunnelbear_servers() -> List[str]:
+    """Fetch TunnelBear server IPs from API"""
     load_dotenv()
-
-    if os.path.exists(TUNNELBEAR_IPS_FILE):
-        with open(TUNNELBEAR_IPS_FILE, "r", encoding="utf-8") as f:
-            servers = json.load(f)
-    else:
-        servers = []
-
-    random.shuffle(COUNTRIES)
 
     credentials = get_credentials_from_env()
 
@@ -431,17 +512,17 @@ def main() -> None:
             "No credentials found in environment variables.",
             "Please set tunnelbear_email and tunnelbear_password.",
         )
-        return
+        return []
 
     print(f"Found {len(credentials)} credential sets")
 
     api = TunnelBearAPI(credentials)
-
+    servers = []
     error_count = 0
 
     for i in range(650):
         try:
-            if i+1 % 10 == 0:
+            if (i + 1) % 10 == 0:
                 print("Refreshing authentication...")
                 api.authenticate()
 
@@ -471,11 +552,34 @@ def main() -> None:
                     servers.append(vpn["host"])
                 print(f"Found {len(response['vpns'])} servers for {country}")
 
-        unique_servers = list(set(servers))
-        print(f"Total found: {len(unique_servers)} unique servers")
+    return list(set(servers))
 
-        with open(TUNNELBEAR_IPS_FILE, "w", encoding="utf-8") as f:
-            json.dump(unique_servers, f)
+
+def main() -> None:
+    """Main function to fetch TunnelBear servers and update IP lists"""
+    current_ips = load_json_file(TUNNELBEAR_IPS_FILE, [])
+    ttl_data_raw = load_json_file(TUNNELBEAR_IPS_TTL_FILE, {}) or {}
+    ttl_data: Dict[str, int] = {k: int(v) for k, v in ttl_data_raw.items()}
+
+    new_servers = fetch_tunnelbear_servers()
+
+    if not new_servers:
+        print("No new IPs fetched. Exiting without changes.")
+        return
+
+    temp_file = "new_tunnelbear_ips.json"
+    save_json_file(temp_file, new_servers)
+
+    final_ips = validate_ips(current_ips, new_servers, ttl_data)
+
+    save_json_file(TUNNELBEAR_IPS_FILE, final_ips)
+    save_json_file(TUNNELBEAR_IPS_TTL_FILE, ttl_data)
+    save_as_txt_file("tunnelbear_ips.txt", final_ips)
+
+    if os.path.exists(temp_file):
+        os.remove(temp_file)
+
+    print(f"TunnelBear IP list updated successfully with {len(final_ips)} IPs")
 
 
 if __name__ == "__main__":
