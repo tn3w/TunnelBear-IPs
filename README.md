@@ -49,7 +49,7 @@ def is_tunnelbear_exit_ip(ip_to_check, json_path='tunnelbear_ips.json'):
         return False
 
 # Usage example
-ip = "123.45.67.89"  # Example IP address
+ip = "216.238.101.72"  # Example IP address
 if is_tunnelbear_exit_ip(ip):
     print(f"{ip} is a TunnelBear exit IP")
 else:
