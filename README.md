@@ -2,16 +2,16 @@
   
 # TunnelBear-IPs
 
-🔒 An automatically updated list of IP addresses associated with the popular mobile VPN provider, TunnelBear.
+An automatically updated list of IP addresses associated with the popular mobile VPN provider, TunnelBear.
 
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/tn3w/ProtonVPN-IPs/main.yml?label=Build&style=for-the-badge)
 
 ### IPInfo Category
-[IPBlocklist](https://github.com/tn3w/IPBlocklist) | [ProtonVPN-IPs](https://github.com/tn3w/ProtonVPN-IPs) | [TunnelBear-IPs](https://github.com/tn3w/TunnelBear-IPs)
+[IPBlocklist](https://github.com/tn3w/IPBlocklist) | [IP2X](https://github.com/tn3w/IP2X) | [ProtonVPN-IPs](https://github.com/tn3w/ProtonVPN-IPs) | [TunnelBear-IPs](https://github.com/tn3w/TunnelBear-IPs) | [Windscribe-IPs](https://github.com/tn3w/Windscribe-IPs)
 
 </div>
 
-## 📊 Data Files
+## Data Files
 
 The repository maintains six regularly updated data files:
 
@@ -19,7 +19,7 @@ The repository maintains six regularly updated data files:
 
 2. `tunnelbear_ips.txt` - A plain text file with one IP address per line, making it easy to use in scripts or other tools that expect a simple list format.
 
-## 🛠️ Usage Examples
+## Usage Examples
 
 ### Checking if an IP address is a TunnelBear IP
 
@@ -56,17 +56,6 @@ else:
     print(f"{ip} is not a TunnelBear exit IP")
 ```
 
-## 📜 License
-Copyright 2025 TN3W
+## License
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+[Apache-2.0](LICENSE)
