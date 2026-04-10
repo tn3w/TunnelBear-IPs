@@ -4,56 +4,93 @@
 
 An automatically updated list of IP addresses associated with the popular mobile VPN provider, TunnelBear.
 
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/tn3w/ProtonVPN-IPs/main.yml?label=Build&style=for-the-badge)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/tn3w/TunnelBear-IPs/main.yml?label=Build&style=for-the-badge)
 
 ### IPInfo Category
+
 [IPBlocklist](https://github.com/tn3w/IPBlocklist) | [IP2X](https://github.com/tn3w/IP2X) | [ProtonVPN-IPs](https://github.com/tn3w/ProtonVPN-IPs) | [TunnelBear-IPs](https://github.com/tn3w/TunnelBear-IPs) | [Windscribe-IPs](https://github.com/tn3w/Windscribe-IPs)
 
 </div>
 
+## Table of Contents
+
+- [Data Files](#data-files)
+- [How It Works](#how-it-works)
+- [Account Setup](#account-setup)
+- [Usage Examples](#usage-examples)
+- [License](#license)
+
 ## Data Files
 
-The repository maintains six regularly updated data files:
+| File                      | Raw Link                                                                                               | Purpose                                               |
+| ------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| `tunnelbear_ips.json`     | [Raw](https://raw.githubusercontent.com/tn3w/TunnelBear-IPs/refs/heads/master/tunnelbear_ips.json)     | Unique server IP addresses (JSON array)               |
+| `tunnelbear_ips.txt`      | [Raw](https://raw.githubusercontent.com/tn3w/TunnelBear-IPs/refs/heads/master/tunnelbear_ips.txt)      | Unique server IP addresses (plain text, one per line) |
+| `tunnelbear_ips_ttl.json` | [Raw](https://raw.githubusercontent.com/tn3w/TunnelBear-IPs/refs/heads/master/tunnelbear_ips_ttl.json) | TTL tracking data for IP expiry                       |
 
-1. `tunnelbear_ips.json` - A JSON array containing only the unique exit IP addresses used by TunnelBear servers. This is a simplified version of the data focusing only on the IP addresses.
+## How It Works
 
-2. `tunnelbear_ips.txt` - A plain text file with one IP address per line, making it easy to use in scripts or other tools that expect a simple list format.
+Server IPs are fetched from the TunnelBear/PolarBear API across all supported countries. A TTL mechanism keeps the list accurate over time:
+
+- Newly discovered IPs receive a TTL of **30**
+- IPs absent from the latest fetch have their TTL decremented by 1
+- IPs that reach TTL **0** are removed from the list
+
+One or more TunnelBear accounts are required to authenticate against the API.
+
+## Account Setup
+
+### Required Repository Secrets
+
+| Secret                 | Purpose                                |
+| ---------------------- | -------------------------------------- |
+| `tunnelbear_email`     | TunnelBear account email (primary)     |
+| `tunnelbear_password`  | TunnelBear account password (primary)  |
+| `tunnelbear_email1`    | Additional account email (optional)    |
+| `tunnelbear_password1` | Additional account password (optional) |
+
+Additional accounts can be added by incrementing the suffix (`tunnelbear_email2` / `tunnelbear_password2`, etc.). Using multiple accounts reduces the chance of rate-limiting during the full country sweep.
+
+### Quick Setup
+
+1. **Create a TunnelBear account**: Sign up at [tunnelbear.com](https://www.tunnelbear.com) (free accounts work)
+2. **Add secrets**: In your repository go to Settings → Secrets and variables → Actions, add the required secrets
+3. **Test**: Run the workflow from the Actions tab
 
 ## Usage Examples
 
-### Checking if an IP address is a TunnelBear IP
-
-#### Python Example - Check Exit IP
+### Check Server IP
 
 ```python
 import json
-import netaddr
 
-def is_tunnelbear_exit_ip(ip_to_check, json_path='tunnelbear_ips.json'):
-    """Check if an IP address is a TunnelBear exit IP"""
+def is_tunnelbear_ip(ip_to_check):
+    with open('tunnelbear_ips.json', 'r') as f:
+        tunnelbear_ips = set(json.load(f))
+    return ip_to_check in tunnelbear_ips
+
+if is_tunnelbear_ip("216.238.101.72"):
+    print("TunnelBear server IP detected")
+```
+
+### Bulk IP Check
+
+```python
+import json
+from typing import List, Dict
+
+def check_multiple_ips(ips_to_check: List[str]) -> Dict[str, bool]:
     try:
-        # Validate IP address format
-        netaddr.IPAddress(ip_to_check)
-        
-        # Load the TunnelBear IPs list
-        with open(json_path, 'r') as f:
-            tunnelbear_ips = json.load(f)
-            
-        # Check if IP is in the list
-        return ip_to_check in tunnelbear_ips
-    except netaddr.AddrFormatError:
-        print(f"Error: {ip_to_check} is not a valid IP address")
-        return False
+        with open('tunnelbear_ips.json', 'r') as f:
+            tunnelbear_ips = set(json.load(f))
+        return {ip: ip in tunnelbear_ips for ip in ips_to_check}
     except Exception as e:
-        print(f"Error: {e}")
-        return False
+        return {'error': str(e)}
 
-# Usage example
-ip = "216.238.101.72"  # Example IP address
-if is_tunnelbear_exit_ip(ip):
-    print(f"{ip} is a TunnelBear exit IP")
-else:
-    print(f"{ip} is not a TunnelBear exit IP")
+ips = ["216.238.101.72", "192.168.1.1"]
+results = check_multiple_ips(ips)
+for ip, is_tb in results.items():
+    print(f"{ip}: TunnelBear={is_tb}")
 ```
 
 ## License
