@@ -2,7 +2,7 @@ name: TunnelBear IP Scraper
 
 on:
   schedule:
-    - cron: '0 */12 * * *' # Runs every 12 hours
+    - cron: '0 0 * * *' # Runs every 24 hours at midnight UTC
   workflow_dispatch: # Allows manual trigger
 
 jobs:
@@ -13,10 +13,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v7
         with:
           python-version: '3.10'
 
